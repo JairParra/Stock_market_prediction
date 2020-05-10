@@ -1,0 +1,96 @@
+---
+title: "PredictingStocks_X"
+author: "Hair Parra"
+date: "May 10, 2020"
+output: 
+  pdf_document: 
+    keep_md: true 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      fig.path = "../img/")
+```
+
+#  Historical Stocks Data Anlaysis: Forecasting Closing Prices
+
+## Loading packages
+
+```{r Library loading,warning=FALSE,message=FALSE}
+library(tidyverse)
+library(tidyquant)
+library(gridExtra)
+library(tibbletime)
+library(forecast)
+library(itsmr)
+library(here)
+library(bbmle)
+library(tseries)
+library(fpp2)
+library(ggthemes)
+library(readr)
+library(xts)
+library(reshape)
+require(timeDate)
+knitr::opts_chunk$set(comment=NA,tidy=FALSE)
+```
+
+```{r, echo=FALSE}
+# Create a new theme
+theme_stonks <- function (base_size = 11, base_family = "") {
+    theme_bw() %+replace% 
+    theme(
+      panel.grid.major  = element_line(), 
+      panel.background = element_rect(fill = "lightblue"), # element_rect(fill = "black") 
+      panel.border = element_rect(color = "lightblue", fill = NA),
+      axis.line = element_line(color = "lightblue"),
+      axis.ticks = element_line(color = "lightblue"),
+      axis.text = element_text(color = "steelblue")
+      )
+}
+```
+
+## Loading the data 
+
+```{r}
+stocks_3M <- read_csv("../data_raw/stocks_data_3M.csv")
+head(stocks_3M, 10)
+```
+
+## Data Preprocessing
+
+Next, extract the columns of interest and convert into time series objects
+
+```{r}
+stocks_3M_data <- select(stocks_3M, Date, Close) # extract cols 
+dates <- as.POSIXct.Date(stocks_3M_data$Date) # extract dates in POSIXct format
+stocks_3M_data.ts <- xts(stocks_3M_data$Close, 
+                        order.by = dates) # 7600
+str(stocks_3M_data.ts) # inspect the data
+```
+
+## Inspecting the data
+
+
+## Autoplot, ACF and PACF
+
+```{r}
+# Plot the same white noice this time as lines  
+autoplot(stocks_3M_data.ts) + 
+  geom_line(colour="blue")  +
+  ggtitle("Stocks closing price historical data (3M)") + 
+  theme_stonks() + xlab("Date") + ylab("USD") + geom_point(color="black")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
