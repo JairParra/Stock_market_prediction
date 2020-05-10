@@ -101,23 +101,23 @@ ggPacf(stocks_3M_data.ts) + theme_stonks()
 ```{r}
 # Estimate various trends
 stocks_3M_linear <- tslm(ts(stocks_3M_data.ts)~trend)  
-stocks_3M_p4 <- tslm(ts(stocks_3M_data.ts)~trend + I(trend^2) + I(trend^3) + I(trend^4) + I(trend^5) ) # polynomial
-stocks_3M_ma21 <- ma(ts(stocks_3M_data.ts), order=5) # moving average
-stocks_3M_trends <- data.frame(cbind(Data=stocks_3M_data.ts, 
+stocks_3M_p5 <- tslm(ts(stocks_3M_data.ts)~trend + I(trend^2) + I(trend^3) + I(trend^4) + I(trend^5) ) # polynomial
+stocks_3M_ma5 <- ma(ts(stocks_3M_data.ts), order=5) # moving average
+stocks_3M_trends <- data.frame(cbind(Data=stocks_3M_data.ts,  # stack in a dataframe
                         Linear_trend=fitted(stocks_3M_linear),
-                        Poly_trend=fitted(stocks_3M_p4),
-                        Moving_avg5 = stocks_3M_ma21
+                        Poly_trend=fitted(stocks_3M_p5),
+                        Moving_avg5 = stocks_3M_ma5
                         ))
 
 # transform to xts objects
 stocks_3M_linear <- xts(fitted(stocks_3M_linear), order.by = dates)
-stocks_3M_p4 <- xts(fitted(stocks_3M_p4), order.by = dates)
+stocks_3M_p5 <- xts(fitted(stocks_3M_p5), order.by = dates)
 
 # Plot all the trends together 
 autoplot(stocks_3M_data.ts, colour="original") + theme_stonks() + 
   geom_line(aes(y=stocks_3M_linear, color="linear"),size=1) + 
-  geom_line(aes(y=stocks_3M_p4, color = "O(5) poly"), size=1) + 
-  geom_line(aes(y=stocks_3M_ma21, color ="ma21"), size=1)  + 
+  geom_line(aes(y=stocks_3M_p5, color = "O(5) poly"), size=1) + 
+  geom_line(aes(y=stocks_3M_ma5, color ="ma21"), size=1)  + 
   scale_color_manual(values = c('original'= 'blue', 
                                 'linear' = 'darkblue',
                                 'O(5) poly' = 'red', 
@@ -126,9 +126,68 @@ autoplot(stocks_3M_data.ts, colour="original") + theme_stonks() +
   ggtitle("Different trend fits for the stocks data") 
 ```
 
+```{r}
+# Detrend and show the de-trended series
+stocks_3M_ma21 <- xts(stocks_3M_p5,order.by = dates) # cast to xts 
+detrend_stocks_3M <- stocks_3M_data.ts - stocks_3M_p5 # substract from original
 
+# Plot the residuals
+autoplot(detrend_stocks_3M) + theme_stonks() + 
+  ggtitle("De-trended Data ( O(5) trend)") +
+  geom_hline(yintercept = 0, colour="black") + 
+  geom_point() + ylab("USD - trend")  + geom_line(color="blue")
+```
 
+The residuals look zero-trended. 
 
+```{r}
+# ACF
+ggAcf(detrend_stocks_3M) + theme_stonks() 
+```
+
+The ACF lags all , except for one fall within the 0.25 confidence bounds. 
+
+```{r}
+# PACF 
+ggPacf(detrend_stocks_3M) + theme_stonks() 
+```
+
+The PACF residuals mostly fall within the confidence bounds; whoever there seems to be some negative autocorrelation present across lags. However, from all the previous, there doesn't seem to be a strong seasonal component present.
+
+## Train-test split & ARIMA fitting
+
+We will now split the data into 32 training data points and 10 test data points. We will produce predictions and compare them to assess fit.
+
+```{r}
+## train_test_split
+detrend_stocks_3M_train <- stocks_3M_data.ts[1:(round(length(detrend_stocks_3M))-10)] # 32
+detrend_stocks_3M_test <- stocks_3M_data.ts[(round(length(detrend_stocks_3M))-9):length(detrend_stocks_3M)] # 10
+str(detrend_stocks_3M_train)
+str(detrend_stocks_3M_test)
+length(detrend_stocks_3M_train)
+length(detrend_stocks_3M_test)
+```
+
+```{r}
+# Fit the ARIMA model on trian data
+detrend_stocks_3M_arima_110 = auto.arima(detrend_stocks_3M_train,
+                       seasonal=TRUE,
+                       stepwise=FALSE,
+                       max.d = 2, 
+                       ic = c("aicc", "aic", "bic") , 
+                       approximation=FALSE,
+                       trace=TRUE)
+```
+
+```{r}
+detrend_stocks_3M_arima_110
+```
+
+## Inspecting the residuals
+
+```{r}
+checkresiduals(detrend_stocks_3M_arima_110) 
+```
 
 
 
