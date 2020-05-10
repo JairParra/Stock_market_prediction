@@ -189,6 +189,134 @@ detrend_stocks_3M_arima_110
 checkresiduals(detrend_stocks_3M_arima_110) 
 ```
 
+```{r}
+# check the residuals 
+train_dates <- as.POSIXct.Date(stocks_3M_data$Date[1: (length(stocks_3M_data$Date) - 10 )])
+arima_res <- xts(residuals(detrend_stocks_3M_arima_110), 
+                 order.by = train_dates)
+```
+
+
+```{r}
+# Plot the residuals
+autoplot(arima_res) + theme_stonks() + 
+  geom_point() + geom_line(color="blue") + 
+  geom_hline(yintercept = 0, colour="black") 
+```
+
+We see that perhaps around Mars 13, there could have been a possible outlier. 
+
+```{r}
+# ACF 
+ggAcf(residuals(detrend_stocks_3M_arima_110)) + theme_stonks() 
+```
+
+```{r}
+# PACF 
+ggPacf(residuals(detrend_stocks_3M_arima_110)) + theme_stonks() 
+```
+
+In both cases, the ACF and PACF points find whithin confidence bounds, with the exception of one. This one might be due to the possible utlier we had before. 
+
+
+```{r}
+# Inspect roots
+autoplot(detrend_stocks_3M_arima_110) + theme_stonks() 
+```
+
+The roots of the AR(1) polynomial guarantee the process is stationary and causal, and of course, it is also invertible. We can also verify this by performing the ADF and KPSS tests for stationarity: 
+
+```{r}
+# Test with a bunch of different k's ? (bigger augmented versions)
+detrend_stocks_3M_arima_110_diff <- diff(residuals(detrend_stocks_3M_arima_110), lag=1) # difference order 1
+adf.test(detrend_stocks_3M_arima_110_diff,k=1) # ADF
+kpss.test(detrend_stocks_3M_arima_110_diff) # KPSS
+```
+
+Reject -> stationary for the ADF, fail to reject -> stationary for the KPSS. Now we can proceed with the forecasting. 
+
+
+## Forecasting
+
+
+### Obtaining model and trend forecasts 
+
+We will now forecast 10 observations from both the main model and the trend
+
+```{r}
+detrend_stocks_3M_arima_110_forecasts <- forecast::forecast(detrend_stocks_3M_arima_110,h=10) # ARIMA(1,1,0) forecasts
+forecasted_trend <- forecast::forecast( stocks_3M_p5, h=10)  # forecast 10 trend observations
+```
+
+
+### Model forecasts
+
+Let's produce a table with the point forecast values along with the errors and confidence intervals for predictions
+
+```{r, echo=FALSE}
+# Print the forecasts along with the boundaries 
+forecast_table<-print(detrend_stocks_3M_arima_110_forecasts) %>%
+  mutate(observed=detrend_stocks_3M_test,
+         errors=`Point Forecast`-observed)
+```
+
+```{r}
+# Show the table with errors 
+forecast_table = as.data.frame(forecast_table)
+colnames(forecast_table) <- c("Point_Forecast","Lo80","Hi80","Lo95","Hi95","observed","errors")
+forecast_table
+```
+
+Extract the values as plain vectors for plotting: we paste this to a bunch of `NA` values to be able to plot all together. 
+
+```{r}
+predicts <- c(rep(NA,32),forecast_table$Point_Forecast)
+predicts_Lo80 <-  c(rep(NA,32),forecast_table$Lo80)
+predicts_Hi80 <-  c(rep(NA,32),forecast_table$Hi80)
+predicts_Lo95 <-  c(rep(NA,32),forecast_table$Lo95)
+predicts_Hi95 <-  c(rep(NA,32),forecast_table$Hi95)
+```
+
+
+### Producing the forecasts 
+
+```{r}
+# Plot the predictions + xlim(1.05e+08,1.09e+08) + ylim(32,45) 
+autoplot(detrend_stocks_3M_arima_110_forecasts)  + theme_stonks()
+```
+
+Although this plot looks pretty, notice the scale is somehow very off! We will construct a better plot manually, by using the values we obtained before, so that we can see both the original data and the repdictions along with the confidence intervals like above. 
+
+```{r}
+autoplot(stocks_3M_data.ts, colour="orig") + theme_stonks() + 
+  geom_line(aes(y=predicts,colour = "predicted") ) + 
+   geom_ribbon(aes(x=as.POSIXct.Date(stocks_3M_data$Date),
+                   ymin=predicts_Lo95,ymax=predicts_Hi95),fill="pink", alpha=.3) + 
+   geom_ribbon(aes(x=as.POSIXct.Date(stocks_3M_data$Date),
+                   ymin=predicts_Lo80,ymax=predicts_Hi80),fill="blue", alpha=.5) + 
+    scale_color_manual(values = c('predicted'= 'red',
+                                  'orig'='black')
+                       ) + 
+  ylab("USD") + xlab("Date") + geom_point() + geom_line(color="blue") + 
+  labs(color = 'Trend fit') + ggtitle("Stocks predictions for 10 days")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

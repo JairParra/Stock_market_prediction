@@ -354,5 +354,212 @@ Model df: 1.   Total lags used: 6
 ```
 
 
+```r
+# check the residuals 
+train_dates <- as.POSIXct.Date(stocks_3M_data$Date[1: (length(stocks_3M_data$Date) - 10 )])
+arima_res <- xts(residuals(detrend_stocks_3M_arima_110), 
+                 order.by = train_dates)
+```
+
+
+
+```r
+# Plot the residuals
+autoplot(arima_res) + theme_stonks() + 
+  geom_point() + geom_line(color="blue") + 
+  geom_hline(yintercept = 0, colour="black") 
+```
+
+![](../img/unnamed-chunk-16-1.png)<!-- -->
+
+We see that perhaps around Mars 13, there could have been a possible outlier. 
+
+
+```r
+# ACF 
+ggAcf(residuals(detrend_stocks_3M_arima_110)) + theme_stonks() 
+```
+
+![](../img/unnamed-chunk-17-1.png)<!-- -->
+
+
+```r
+# PACF 
+ggPacf(residuals(detrend_stocks_3M_arima_110)) + theme_stonks() 
+```
+
+![](../img/unnamed-chunk-18-1.png)<!-- -->
+
+In both cases, the ACF and PACF points find whithin confidence bounds, with the exception of one. This one might be due to the possible utlier we had before. 
+
+
+
+```r
+# Inspect roots
+autoplot(detrend_stocks_3M_arima_110) + theme_stonks() 
+```
+
+![](../img/unnamed-chunk-19-1.png)<!-- -->
+
+The roots of the AR(1) polynomial guarantee the process is stationary and causal, and of course, it is also invertible. We can also verify this by performing the ADF and KPSS tests for stationarity: 
+
+
+```r
+# Test with a bunch of different k's ? (bigger augmented versions)
+detrend_stocks_3M_arima_110_diff <- diff(residuals(detrend_stocks_3M_arima_110), lag=1) # difference order 1
+adf.test(detrend_stocks_3M_arima_110_diff,k=1) # ADF
+```
+
+```
+Warning in adf.test(detrend_stocks_3M_arima_110_diff, k = 1): p-value smaller
+than printed p-value
+```
+
+```
+
+	Augmented Dickey-Fuller Test
+
+data:  detrend_stocks_3M_arima_110_diff
+Dickey-Fuller = -7.2389, Lag order = 1, p-value = 0.01
+alternative hypothesis: stationary
+```
+
+```r
+kpss.test(detrend_stocks_3M_arima_110_diff) # KPSS
+```
+
+```
+Warning in kpss.test(detrend_stocks_3M_arima_110_diff): p-value greater than
+printed p-value
+```
+
+```
+
+	KPSS Test for Level Stationarity
+
+data:  detrend_stocks_3M_arima_110_diff
+KPSS Level = 0.055657, Truncation lag parameter = 2, p-value = 0.1
+```
+
+Reject -> stationary for the ADF, fail to reject -> stationary for the KPSS. Now we can proceed with the forecasting. 
+
+
+## Forecasting
+
+
+### Obtaining model and trend forecasts 
+
+We will now forecast 10 observations from both the main model and the trend
+
+
+```r
+detrend_stocks_3M_arima_110_forecasts <- forecast::forecast(detrend_stocks_3M_arima_110,h=10) # ARIMA(1,1,0) forecasts
+forecasted_trend <- forecast::forecast( stocks_3M_p5, h=10)  # forecast 10 trend observations
+```
+
+
+### Model forecasts
+
+Let's produce a table with the point forecast values along with the errors and confidence intervals for predictions
+
+
+```
+        Point Forecast    Lo 80    Hi 80    Lo 95    Hi 95
+2764801       41.99639 39.69064 44.30213 38.47005 45.52272
+2851201       42.23504 39.65039 44.81969 38.28216 46.18793
+2937601       42.11727 39.00740 45.22714 37.36114 46.87340
+3024001       42.17539 38.74312 45.60766 36.92618 47.42459
+3110401       42.14671 38.36444 45.92898 36.36223 47.93119
+3196801       42.16086 38.08401 46.23771 35.92585 48.39587
+3283201       42.15388 37.79058 46.51717 35.48079 48.82696
+3369601       42.15732 37.53075 46.78389 35.08159 49.23305
+3456001       42.15562 37.27741 47.03383 34.69504 49.61620
+3542401       42.15646 37.04017 47.27275 34.33177 49.98115
+```
+
+
+```r
+# Show the table with errors 
+forecast_table = as.data.frame(forecast_table)
+colnames(forecast_table) <- c("Point_Forecast","Lo80","Hi80","Lo95","Hi95","observed","errors")
+forecast_table
+```
+
+```
+   Point_Forecast     Lo80     Hi80     Lo95     Hi95 observed     errors
+1        41.99639 39.69064 44.30213 38.47005 45.52272    42.54 -0.5436159
+2        42.23504 39.65039 44.81969 38.28216 46.18793    40.55  1.6850426
+3        42.11727 39.00740 45.22714 37.36114 46.87340    41.76  0.3572703
+4        42.17539 38.74312 45.60766 36.92618 47.42459    41.62  0.5553886
+5        42.14671 38.36444 45.92898 36.36223 47.93119    42.52 -0.3732934
+6        42.16086 38.08401 46.23771 35.92585 48.39587    43.06 -0.8991408
+7        42.15388 37.79058 46.51717 35.48079 48.82696    42.49 -0.3361264
+8        42.15732 37.53075 46.78389 35.08159 49.23305    43.34 -1.1826776
+9        42.15562 37.27741 47.03383 34.69504 49.61620    42.38 -0.2243795
+10       42.15646 37.04017 47.27275 34.33177 49.98115    40.92  1.2364629
+```
+
+Extract the values as plain vectors for plotting: we paste this to a bunch of `NA` values to be able to plot all together. 
+
+
+```r
+predicts <- c(rep(NA,32),forecast_table$Point_Forecast)
+predicts_Lo80 <-  c(rep(NA,32),forecast_table$Lo80)
+predicts_Hi80 <-  c(rep(NA,32),forecast_table$Hi80)
+predicts_Lo95 <-  c(rep(NA,32),forecast_table$Lo95)
+predicts_Hi95 <-  c(rep(NA,32),forecast_table$Hi95)
+```
+
+
+### Producing the forecasts 
+
+
+```r
+# Plot the predictions + xlim(1.05e+08,1.09e+08) + ylim(32,45) 
+autoplot(detrend_stocks_3M_arima_110_forecasts)  + theme_stonks()
+```
+
+![](../img/unnamed-chunk-25-1.png)<!-- -->
+
+Although this plot looks pretty, notice the scale is somehow very off! We will construct a better plot manually, by using the values we obtained before, so that we can see both the original data and the repdictions along with the confidence intervals like above. 
+
+
+```r
+autoplot(stocks_3M_data.ts, colour="orig") + theme_stonks() + 
+  geom_line(aes(y=predicts,colour = "predicted") ) + 
+   geom_ribbon(aes(x=as.POSIXct.Date(stocks_3M_data$Date),
+                   ymin=predicts_Lo95,ymax=predicts_Hi95),fill="pink", alpha=.3) + 
+   geom_ribbon(aes(x=as.POSIXct.Date(stocks_3M_data$Date),
+                   ymin=predicts_Lo80,ymax=predicts_Hi80),fill="blue", alpha=.5) + 
+    scale_color_manual(values = c('predicted'= 'red',
+                                  'orig'='black')
+                       ) + 
+  ylab("USD") + xlab("Date") + geom_point() + geom_line(color="blue") + 
+  labs(color = 'Trend fit') + ggtitle("Stocks predictions for 10 days")
+```
+
+```
+Warning: Removed 32 row(s) containing missing values (geom_path).
+```
+
+![](../img/unnamed-chunk-26-1.png)<!-- -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
