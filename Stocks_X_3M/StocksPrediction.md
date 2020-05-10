@@ -2,9 +2,10 @@
 title: "PredictingStocks_X"
 author: "Hair Parra"
 date: "May 10, 2020"
-output: 
-  pdf_document: 
-    keep_md: true 
+output:
+  html_document:
+    keep_md: yes
+    keep_pdf: yes
 ---
 
 
@@ -30,7 +31,8 @@ library(readr)
 library(xts)
 library(reshape)
 require(timeDate)
-knitr::opts_chunk$set(comment=NA,tidy=FALSE)
+library(png)
+knitr::opts_chunk$set(comment=NA,tidy=TRUE)
 ```
 
 
@@ -110,12 +112,62 @@ autoplot(stocks_3M_data.ts) +
   theme_stonks() + xlab("Date") + ylab("USD") + geom_point(color="black")
 ```
 
-![](../img/unnamed-chunk-4-1.pdf)<!-- --> 
+![](../img/unnamed-chunk-4-1.png)<!-- -->
 
 
 
+```r
+# ACF
+ggAcf(stocks_3M_data.ts) + theme_stonks()
+```
+
+![](../img/unnamed-chunk-5-1.png)<!-- -->
 
 
+```r
+# PACF 
+ggPacf(stocks_3M_data.ts) + theme_stonks()
+```
+
+![](../img/unnamed-chunk-6-1.png)<!-- -->
+
+
+## Estimating the trend 
+
+
+```r
+# Estimate various trends
+stocks_3M_linear <- tslm(ts(stocks_3M_data.ts)~trend)  
+stocks_3M_p4 <- tslm(ts(stocks_3M_data.ts)~trend + I(trend^2) + I(trend^3) + I(trend^4) + I(trend^5) ) # polynomial
+stocks_3M_ma21 <- ma(ts(stocks_3M_data.ts), order=5) # moving average
+stocks_3M_trends <- data.frame(cbind(Data=stocks_3M_data.ts, 
+                        Linear_trend=fitted(stocks_3M_linear),
+                        Poly_trend=fitted(stocks_3M_p4),
+                        Moving_avg5 = stocks_3M_ma21
+                        ))
+
+# transform to xts objects
+stocks_3M_linear <- xts(fitted(stocks_3M_linear), order.by = dates)
+stocks_3M_p4 <- xts(fitted(stocks_3M_p4), order.by = dates)
+
+# Plot all the trends together 
+autoplot(stocks_3M_data.ts, colour="original") + theme_stonks() + 
+  geom_line(aes(y=stocks_3M_linear, color="linear"),size=1) + 
+  geom_line(aes(y=stocks_3M_p4, color = "O(5) poly"), size=1) + 
+  geom_line(aes(y=stocks_3M_ma21, color ="ma21"), size=1)  + 
+  scale_color_manual(values = c('original'= 'blue', 
+                                'linear' = 'darkblue',
+                                'O(5) poly' = 'red', 
+                                'ma21'= 'yellow')) + 
+  labs(color = 'Trend fit') +  ylab("USD") + 
+  ggtitle("Different trend fits for the stocks data") 
+```
+
+```
+Warning: Removed 4 row(s) containing missing values (geom_path).
+```
+
+![](../img/unnamed-chunk-7-1.png)<!-- -->
 
 
 
