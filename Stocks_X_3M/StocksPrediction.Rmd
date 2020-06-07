@@ -3,6 +3,7 @@ title: "PredictingStocks_X"
 author: "Hair Parra"
 date: "May 10, 2020"
 output:
+  pdf_document: default
   html_document:
     keep_md: yes
     keep_pdf: yes
@@ -128,8 +129,8 @@ autoplot(stocks_3M_data.ts, colour="original") + theme_stonks() +
 
 ```{r}
 # Detrend and show the de-trended series
-stocks_3M_ma21 <- xts(stocks_3M_p5,order.by = dates) # cast to xts 
-detrend_stocks_3M <- stocks_3M_data.ts - stocks_3M_p5 # substract from original
+stocks_3M_p5_xts <- xts(stocks_3M_p5,order.by = dates) # cast to xts 
+detrend_stocks_3M <- stocks_3M_data.ts - stocks_3M_p5_xts # substract from original
 
 # Plot the residuals
 autoplot(detrend_stocks_3M) + theme_stonks() + 
@@ -190,7 +191,7 @@ checkresiduals(detrend_stocks_3M_arima_110)
 ```
 
 ```{r}
-# check the residuals 
+# Obtain dates and residuals 
 train_dates <- as.POSIXct.Date(stocks_3M_data$Date[1: (length(stocks_3M_data$Date) - 10 )])
 arima_res <- xts(residuals(detrend_stocks_3M_arima_110), 
                  order.by = train_dates)
@@ -290,28 +291,39 @@ Although this plot looks pretty, notice the scale is somehow very off! We will c
 ```{r}
 autoplot(stocks_3M_data.ts, colour="orig") + theme_stonks() + 
   geom_line(aes(y=predicts,colour = "predicted") ) + 
-   geom_ribbon(aes(x=as.POSIXct.Date(stocks_3M_data$Date),
-                   ymin=predicts_Lo95,ymax=predicts_Hi95),fill="pink", alpha=.3) + 
-   geom_ribbon(aes(x=as.POSIXct.Date(stocks_3M_data$Date),
-                   ymin=predicts_Lo80,ymax=predicts_Hi80),fill="blue", alpha=.5) + 
-    scale_color_manual(values = c('predicted'= 'red',
-                                  'orig'='black')
-                       ) + 
+  geom_ribbon(aes(x=dates, ymin=predicts_Lo95,ymax=predicts_Hi95),fill="pink", alpha=.3) + 
+  geom_ribbon(aes(x=dates, ymin=predicts_Lo80,ymax=predicts_Hi80),fill="blue", alpha=.5) + 
+  scale_color_manual(values = c('predicted'= 'red','orig'='black')) + 
   ylab("USD") + xlab("Date") + geom_point() + geom_line(color="blue") + 
-  labs(color = 'Trend fit') + ggtitle("Stocks predictions for 10 days")
+   geom_point() + ggtitle("Stocks predictions for 10 days")
+```
+
+
+```{r}
+autoplot(stocks_3M_data.ts, colour="orig") + theme_solarized_2(light = FALSE) +
+  scale_colour_solarized("blue") +
+  geom_line(aes(y=predicts,colour = "predicted") ) + 
+  geom_ribbon(aes(x=dates, ymin=predicts_Lo95,ymax=predicts_Hi95),fill="pink", alpha=.3) + 
+  geom_ribbon(aes(x=dates, ymin=predicts_Lo80,ymax=predicts_Hi80),fill="blue", alpha=.5) + 
+  scale_color_manual(values = c('predicted'= 'red','orig'='black')) + 
+  labs(color = 'Trend fit')+ylab("USD") + xlab("Date")  + geom_line(color="blue") + 
+  geom_point(color="yellow") + ggtitle("Stocks predictions for 10 days")
 ```
 
 
 
 
 
-
-
-
-
-
-
-
+```{r}
+autoplot(stocks_3M_data.ts, colour="orig") + theme_hc(bgcolor = "darkunica") +
+  scale_colour_hc("darkunica") + 
+  geom_line(aes(y=predicts,colour = "predicted") ) + 
+  geom_ribbon(aes(x=dates, ymin=predicts_Lo95,ymax=predicts_Hi95),fill="pink", alpha=.3) + 
+  geom_ribbon(aes(x=dates, ymin=predicts_Lo80,ymax=predicts_Hi80),fill="blue", alpha=.5) + 
+  scale_color_manual(values = c('predicted'= 'red','orig'='black')) + 
+  labs(color = 'Trend fit')+ylab("USD") + xlab("Date")  + geom_line(color="blue") + 
+  geom_point(color="yellow") + ggtitle("Stocks predictions for 10 days")
+```
 
 
 
